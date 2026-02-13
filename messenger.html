@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>기업용 대리점-본사 메신저 (실시간 데모)</title>
+  <style>
+    :root { --bg:#f3f5fa; --panel:#fff; --line:#dfe3ea; --text:#1f2937; --muted:#667085; --brand:#1d4ed8; --soft:#e7efff; --dealer:#e9f9ef; --danger:#b91c1c; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family:"Pretendard","Noto Sans KR",sans-serif; background:var(--bg); color:var(--text); }
+    .layout { max-width:1400px; margin:18px auto; padding:0 12px; display:grid; grid-template-columns:320px 1fr; gap:12px; min-height:calc(100vh - 36px); }
+    .panel { background:var(--panel); border:1px solid var(--line); border-radius:14px; overflow:hidden; box-shadow:0 8px 22px rgba(15,23,42,.06); }
+    .left { display:grid; grid-template-rows:auto auto auto 1fr; }
+    .header { padding:14px; border-bottom:1px solid var(--line); background:linear-gradient(90deg,#0f2f7f,#1d4ed8); color:#fff; }
+    .header h1 { margin:0; font-size:18px; }
+    .header small,.header a { color:#dbeafe; }
+    .header a { text-decoration:none; font-size:13px; }
+    .block { padding:12px; border-bottom:1px solid var(--line); }
+    label { display:block; font-size:12px; color:var(--muted); margin-bottom:6px; }
+    select,input,button,textarea { width:100%; border:1px solid #cdd4df; border-radius:10px; font-size:14px; padding:10px; font-family:inherit; }
+    .metrics { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; text-align:center; }
+    .metric { border:1px solid var(--line); border-radius:10px; padding:8px 4px; background:#f8fafc; }
+    .metric strong { display:block; font-size:17px; }
+    .metric span { font-size:11px; color:var(--muted); }
+    .rooms { overflow:auto; }
+    .room { padding:10px 12px; border-bottom:1px solid #f1f4f8; cursor:pointer; display:flex; justify-content:space-between; gap:8px; align-items:center; }
+    .room:hover { background:#f8fafc; }
+    .room.active { background:#eef4ff; }
+    .room h3 { margin:0; font-size:14px; }
+    .room p { margin:2px 0 0; font-size:12px; color:var(--muted); }
+    .badge { min-width:20px; height:20px; border-radius:999px; background:#ef4444; color:#fff; font-size:11px; display:flex; align-items:center; justify-content:center; padding:0 6px; }
+    .main { display:grid; grid-template-rows:auto 1fr auto; }
+    .topbar { border-bottom:1px solid var(--line); padding:14px; display:flex; justify-content:space-between; gap:10px; align-items:center; }
+    .topbar h2 { margin:0; font-size:18px; }
+    .topbar p { margin:4px 0 0; color:var(--muted); font-size:12px; }
+    .status { font-size:12px; padding:5px 8px; border-radius:999px; background:#e2e8f0; color:#334155; }
+    .online { background:#dcfce7; color:#166534; }
+    .messages { padding:14px; overflow:auto; background:#fbfdff; display:flex; flex-direction:column; gap:10px; }
+    .empty { margin:auto; color:var(--muted); }
+    .msg { max-width:70%; border:1px solid var(--line); border-radius:12px; padding:10px; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.04); }
+    .msg.self { margin-left:auto; background:var(--soft); border-color:#bfd2ff; }
+    .msg.dealer { background:var(--dealer); }
+    .meta { font-size:12px; color:var(--muted); margin-bottom:6px; }
+    .composer { border-top:1px solid var(--line); padding:12px; display:grid; grid-template-columns:1fr 130px; gap:8px; align-items:start; background:#fff; }
+    textarea { resize:vertical; min-height:66px; }
+    .actions { display:grid; gap:8px; }
+    button { cursor:pointer; border:none; background:var(--brand); color:#fff; font-weight:600; padding:11px; }
+    button.secondary { background:#64748b; }
+    button.danger { background:var(--danger); }
+    @media (max-width:1000px){ .layout{grid-template-columns:1fr;} .left{max-height:45vh;} .msg{max-width:88%;} }
+  </style>
+</head>
+<body>
+  <main class="layout">
+    <aside class="panel left">
+      <div class="header">
+        <h1>기업용 대리점-본사 메신저</h1>
+        <small>실시간 데모 · 여러 브라우저에서 동시 확인 가능</small><br>
+        <a href="index.html">홈으로 이동</a>
+      </div>
+      <div class="block">
+        <label for="userSelect">내 계정</label>
+        <select id="userSelect"></select>
+      </div>
+      <div class="block">
+        <div class="metrics">
+          <div class="metric"><strong id="mUsers">0</strong><span>총 인원</span></div>
+          <div class="metric"><strong id="mDealers">0</strong><span>대리점</span></div>
+          <div class="metric"><strong id="mUnread">0</strong><span>미확인</span></div>
+        </div>
+        <label for="roomFilter" style="margin-top:10px;">대화방 검색</label>
+        <input id="roomFilter" type="text" placeholder="예: 05지점, HQ 영업2팀">
+      </div>
+      <div id="roomList" class="rooms"></div>
+    </aside>
+
+    <section class="panel main">
+      <header class="topbar">
+        <div>
+          <h2 id="roomTitle">대화방을 선택하세요</h2>
+          <p id="roomSub">데모 서버에 접속한 모든 사용자에게 실시간 반영됩니다.</p>
+        </div>
+        <span id="connStatus" class="status">연결중...</span>
+      </header>
+      <div id="messages" class="messages"></div>
+      <form id="composer" class="composer">
+        <textarea id="messageInput" required placeholder="메시지를 입력하세요"></textarea>
+        <div class="actions">
+          <button type="submit">전송</button>
+          <button id="templateBtn" class="secondary" type="button">요청 템플릿</button>
+          <button id="clearRoomBtn" class="danger" type="button">현재방 초기화</button>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const roomList = document.getElementById('roomList');
+    const roomFilter = document.getElementById('roomFilter');
+    const userSelect = document.getElementById('userSelect');
+    const roomTitle = document.getElementById('roomTitle');
+    const roomSub = document.getElementById('roomSub');
+    const messagesEl = document.getElementById('messages');
+    const composer = document.getElementById('composer');
+    const messageInput = document.getElementById('messageInput');
+    const templateBtn = document.getElementById('templateBtn');
+    const clearRoomBtn = document.getElementById('clearRoomBtn');
+    const connStatus = document.getElementById('connStatus');
+
+    const mUsers = document.getElementById('mUsers');
+    const mDealers = document.getElementById('mDealers');
+    const mUnread = document.getElementById('mUnread');
+
+    const ACTIVE_USER_KEY = 'enterprise_active_user';
+    const ACTIVE_ROOM_KEY = 'enterprise_active_room';
+    const templateText = '월간 판매 현황/재고/출고예정일 공유 부탁드립니다.';
+
+    let state = { dealers: [], users: [], rooms: [] };
+    let activeUserId = localStorage.getItem(ACTIVE_USER_KEY) || '';
+    let activeRoomId = localStorage.getItem(ACTIVE_ROOM_KEY) || '';
+
+    const socket = io();
+
+    socket.on('connect', () => {
+      connStatus.textContent = '실시간 연결됨';
+      connStatus.classList.add('online');
+    });
+
+    socket.on('disconnect', () => {
+      connStatus.textContent = '연결 끊김';
+      connStatus.classList.remove('online');
+    });
+
+    socket.on('bootstrap', (payload) => {
+      state = payload;
+      if (!activeUserId || !state.users.find((u) => u.id === activeUserId)) activeUserId = state.users[0].id;
+      if (!activeRoomId || !state.rooms.find((r) => r.id === activeRoomId)) activeRoomId = state.rooms[0].id;
+      localStorage.setItem(ACTIVE_USER_KEY, activeUserId);
+      localStorage.setItem(ACTIVE_ROOM_KEY, activeRoomId);
+      socket.emit('joinRoom', { roomId: activeRoomId });
+      socket.emit('markRead', { roomId: activeRoomId, userId: activeUserId });
+      populateUsers();
+      renderAll();
+    });
+
+    socket.on('roomUpdated', ({ roomId, room }) => {
+      const idx = state.rooms.findIndex((r) => r.id === roomId);
+      if (idx >= 0) state.rooms[idx] = room;
+      renderAll();
+    });
+
+    function currentUser() {
+      return state.users.find((u) => u.id === activeUserId) || state.users[0];
+    }
+
+    function refreshMetrics() {
+      const unread = state.rooms.reduce((sum, room) => sum + (room.unreadByUser?.[activeUserId] || 0), 0);
+      mUsers.textContent = state.users.length;
+      mDealers.textContent = state.dealers.length;
+      mUnread.textContent = unread;
+    }
+
+    function populateUsers() {
+      userSelect.innerHTML = '';
+      state.users.forEach((user) => {
+        const option = document.createElement('option');
+        option.value = user.id;
+        option.textContent = user.role === 'hq' ? `${user.name} (${user.team})` : `${user.name} (대리점)`;
+        userSelect.appendChild(option);
+      });
+      userSelect.value = activeUserId;
+    }
+
+    function filteredRooms() {
+      const keyword = roomFilter.value.trim().toLowerCase();
+      if (!keyword) return state.rooms;
+      return state.rooms.filter((room) => {
+        const dealer = state.dealers.find((d) => d.id === room.dealerId);
+        return `${room.title} ${room.hqTeam} ${dealer?.region || ''}`.toLowerCase().includes(keyword);
+      });
+    }
+
+    function renderRooms() {
+      const rooms = filteredRooms();
+      roomList.innerHTML = '';
+      if (!rooms.length) {
+        roomList.innerHTML = '<p style="padding:12px;color:#667085;">검색 결과가 없습니다.</p>';
+        return;
+      }
+      rooms.forEach((room) => {
+        const dealer = state.dealers.find((d) => d.id === room.dealerId);
+        const unread = room.unreadByUser?.[activeUserId] || 0;
+        const item = document.createElement('div');
+        item.className = `room ${activeRoomId === room.id ? 'active' : ''}`;
+        item.innerHTML = `<div><h3>${room.title}</h3><p>${dealer?.region || '-'} · ${room.hqTeam}</p></div>${unread ? `<span class="badge">${unread}</span>` : ''}`;
+        item.addEventListener('click', () => {
+          activeRoomId = room.id;
+          localStorage.setItem(ACTIVE_ROOM_KEY, activeRoomId);
+          socket.emit('joinRoom', { roomId: activeRoomId });
+          socket.emit('markRead', { roomId: activeRoomId, userId: activeUserId });
+          renderAll();
+        });
+        roomList.appendChild(item);
+      });
+    }
+
+    function renderMessages() {
+      const room = state.rooms.find((r) => r.id === activeRoomId);
+      if (!room) {
+        messagesEl.innerHTML = '<p class="empty">대화방을 찾을 수 없습니다.</p>';
+        return;
+      }
+      const dealer = state.dealers.find((d) => d.id === room.dealerId);
+      roomTitle.textContent = room.title;
+      roomSub.textContent = `${dealer?.region || '-'} 권역 · ${room.hqTeam} · 메시지 ${room.messages.length}건`;
+
+      messagesEl.innerHTML = '';
+      if (!room.messages.length) {
+        messagesEl.innerHTML = '<p class="empty">아직 대화 내역이 없습니다.</p>';
+        return;
+      }
+      room.messages.forEach((msg) => {
+        const self = msg.senderId === activeUserId;
+        const el = document.createElement('div');
+        el.className = `msg ${self ? 'self' : ''} ${msg.senderRole === 'dealer' ? 'dealer' : ''}`;
+        el.innerHTML = `<div class="meta">${msg.senderName} · ${msg.time}</div><div>${msg.text}</div>`;
+        messagesEl.appendChild(el);
+      });
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function renderAll() {
+      refreshMetrics();
+      renderRooms();
+      renderMessages();
+    }
+
+    userSelect.addEventListener('change', () => {
+      activeUserId = userSelect.value;
+      localStorage.setItem(ACTIVE_USER_KEY, activeUserId);
+      socket.emit('markRead', { roomId: activeRoomId, userId: activeUserId });
+      renderAll();
+    });
+
+    roomFilter.addEventListener('input', renderRooms);
+
+    composer.addEventListener('submit', (event) => {
+      event.preventDefault();
+      const text = messageInput.value.trim();
+      if (!text) return;
+      const user = currentUser();
+      socket.emit('sendMessage', {
+        roomId: activeRoomId,
+        senderId: user.id,
+        senderName: user.name,
+        senderRole: user.role,
+        text,
+      });
+      messageInput.value = '';
+    });
+
+    templateBtn.addEventListener('click', () => {
+      messageInput.value = templateText;
+      messageInput.focus();
+    });
+
+    clearRoomBtn.addEventListener('click', () => {
+      socket.emit('clearRoom', { roomId: activeRoomId });
+    });
+  </script>
+</body>
+</html>
